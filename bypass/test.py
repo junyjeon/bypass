@@ -3,78 +3,58 @@ import subprocess
 import json
 import asyncio
 import aiohttp
+import logging
+import random
+from typing import Dict, Any
 
-def load_settings():
-    with open('settings.json') as f:
+def load_settings(file_path: str) -> Dict[str, Any]:
+    with open(file_path) as f:
         return json.load(f)
 
-async def check_proxy_ip(session):
-    """
-    현재 프록시 IP 주소를 확인하고 반환합니다.
-    IP 주소를 가져오는 데 실패하면 None을 반환합니다.
-    """
+settings = load_settings('settings.json')
+
+async def check_proxy_ip(session: aiohttp.ClientSession) -> str:
     try:
         async with session.get('http://ip.42.pl/raw') as response:
             return await response.text()
+    except aiohttp.ClientError as e:
+        logging.error(f"Network error occurred while getting IP: {e}")
+        return None
     except Exception as e:
-        print(f"Error occurred while getting IP: {e}")
+        logging.error(f"Unexpected error occurred while getting IP: {e}")
         return None
 
-def switch_proxy_server(current_proxy_index, config_files):
-    """
-    현재 프록시 서버를 중지하고 다음 프록시 서버를 시작합니다.
-    current_proxy_index는 현재 사용 중인 프록시 서버의 인덱스입니다.
-    """
+def switch_proxy_server(config_files: list) -> str:
     subprocess.run(["pkill", "sslocal"])
-    config_file = config_files[current_proxy_index]
+    config_file = random.choice(config_files)
     subprocess.run(["sslocal", "-c", config_file])
-    current_proxy_index = (current_proxy_index + 1) % len(config_files)
-    return current_proxy_index
+    return config_file
 
-async def main_function():
-    """
-    주기적으로 IP 주소를 확인하고, IP 주소가 변경되지 않았다면 프록시 서버를 전환합니다.
-    프록시 서버 전환 후에도 IP 주소가 변경되지 않는다면, 프록시 서버 전환을 계속 시도합니다.
-    """
-    settings = load_settings()
+async def sleep_with_message(sleep_time: int, message: str) -> None:
+    logging.info(message)
+    await asyncio.sleep(sleep_time)
+
+async def handle_ip(session: aiohttp.ClientSession, config_files: list, used_ips: set) -> str:
+    while True:
+        ip = await check_proxy_ip(session)
+        if ip is not None and ip not in used_ips:
+            break
+        config_file = switch_proxy_server(config_files)
+        await sleep_with_message(settings['sleep_time'], f"Switched to proxy server {config_file}. Waiting...")
+    used_ips.add(ip)
+    asyncio.get_event_loop().call_later(settings['expiry_time'], used_ips.remove, ip)
+    return ip
+
+async def main_function(loop: asyncio.AbstractEventLoop) -> None:
     config_files = settings['config_files']
-    current_proxy_index = 0
-    used_ips = {}
+    used_ips = set()
 
     async with aiohttp.ClientSession() as session:
         while True:
-            # Remove expired IPs from used_ips
-            current_time = time.time()
-            used_ips = {ip: expiry for ip, expiry in used_ips.items() if expiry > current_time}
-
-            original_ip = await check_proxy_ip(session)
-            if original_ip is None:
-                print("Failed to get original IP. Retrying...")
-                time.sleep(settings['sleep_time'])
-                continue
-
-            time.sleep(settings['sleep_time'])
-
-            new_ip = await check_proxy_ip(session)
-            if new_ip is None:
-                print("Failed to get new IP. Retrying...")
-                time.sleep(settings['sleep_time'])
-                continue
-
-            while new_ip == original_ip or (new_ip in used_ips and used_ips[new_ip] > current_time):
-                try:
-                    current_proxy_index = switch_proxy_server(current_proxy_index, config_files)
-                    time.sleep(settings['sleep_time'])
-                    new_ip = await check_proxy_ip(session)
-                    if new_ip is None:
-                        print("Failed to get new IP after switching. Retrying...")
-                        time.sleep(settings['sleep_time'])
-                        continue
-                except Exception as e:
-                    print(f"Error occurred while switching proxy server: {e}")
-                    time.sleep(settings['sleep_time'])
-
-            used_ips[new_ip] = current_time + 30
+            ip = await handle_ip(session, config_files, used_ips)
+            if ip is not None:
+                break
+            await asyncio.sleep(settings['sleep_time'])
 
 loop = asyncio.get_event_loop()
-loop.run_until_complete(main_function())
+loop.run_until_complete(main_function(loop))
