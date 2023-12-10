@@ -27,7 +27,7 @@ async def check_proxy_ip(session: aiohttp.ClientSession) -> str:
 def switch_proxy_server(config_files: list) -> str:
     subprocess.run(["pkill", "sslocal"])
     config_file = random.choice(config_files)
-    subprocess.run(["sslocal", "-c", config_file])
+    subprocess.Popen(["sslocal", "-c", config_file])
     return config_file
 
 async def sleep_with_message(sleep_time: int, message: str) -> None:

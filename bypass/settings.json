@@ -4,5 +4,6 @@
     "conf/config2.json",
     "conf/config3.json"
   ],
-  "sleep_time": 1
+  "sleep_time": 5,
+  "expiry_time": 60
 }
