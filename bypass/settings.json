@@ -1,0 +1,8 @@
+{
+  "config_files": [
+    "conf/config1.json",
+    "conf/config2.json",
+    "conf/config3.json"
+  ],
+  "sleep_time": 1
+}
