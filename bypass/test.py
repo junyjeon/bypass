@@ -43,6 +43,10 @@ async def main_function():
 
     async with aiohttp.ClientSession() as session:
         while True:
+            # Remove expired IPs from used_ips
+            current_time = time.time()
+            used_ips = {ip: expiry for ip, expiry in used_ips.items() if expiry > current_time}
+
             original_ip = await check_proxy_ip(session)
             if original_ip is None:
                 print("Failed to get original IP. Retrying...")
@@ -57,16 +61,20 @@ async def main_function():
                 time.sleep(settings['sleep_time'])
                 continue
 
-            while new_ip == original_ip or (new_ip in used_ips and used_ips[new_ip] > time.time()):
+            while new_ip == original_ip or (new_ip in used_ips and used_ips[new_ip] > current_time):
                 try:
                     current_proxy_index = switch_proxy_server(current_proxy_index, config_files)
                     time.sleep(settings['sleep_time'])
                     new_ip = await check_proxy_ip(session)
+                    if new_ip is None:
+                        print("Failed to get new IP after switching. Retrying...")
+                        time.sleep(settings['sleep_time'])
+                        continue
                 except Exception as e:
                     print(f"Error occurred while switching proxy server: {e}")
                     time.sleep(settings['sleep_time'])
 
-            used_ips[new_ip] = time.time() + 30
+            used_ips[new_ip] = current_time + 30
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main_function())
