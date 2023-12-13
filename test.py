@@ -1,10 +1,12 @@
-import time
 import subprocess
 import json
 import asyncio
 import aiohttp
 import logging
 import random
+import requests
+from itertools import cycle
+from lxml.html import fromstring
 from typing import Dict, Any
 
 def load_settings(file_path: str) -> Dict[str, Any]:
@@ -12,6 +14,22 @@ def load_settings(file_path: str) -> Dict[str, Any]:
         return json.load(f)
 
 settings = load_settings('settings.json')
+
+def get_proxies():
+    url = 'https://free-proxy-list.net/'
+    response = requests.get(url)
+    parser = fromstring(response.text)
+    proxies = set()
+    for i in parser.xpath('//tbody/tr')[:10]:
+        # if i.xpath('.//td[7][contains(text(),"yes")]'):
+            proxy = ":".join([i.xpath('.//td[1]/text()')[0], i.xpath('.//td[2]/text()')[0]])
+            proxies.add(proxy)
+    return proxies
+
+# Get proxies
+proxies = get_proxies()
+print(proxies)
+proxy_pool = cycle(proxies)
 
 async def check_proxy_ip(session: aiohttp.ClientSession) -> str:
     try:
@@ -36,11 +54,14 @@ async def sleep_with_message(sleep_time: int, message: str) -> None:
 
 async def handle_ip(session: aiohttp.ClientSession, config_files: list, used_ips: set) -> str:
     while True:
+        config_file = switch_proxy_server(config_files)
+        print(f"Switched to proxy server {config_file}.")  # Add this line
+        await sleep_with_message(settings['sleep_time'], f"Switched to proxy server {config_file}. Waiting...")
+
         ip = await check_proxy_ip(session)
         if ip is not None and ip not in used_ips:
             break
-        config_file = switch_proxy_server(config_files)
-        await sleep_with_message(settings['sleep_time'], f"Switched to proxy server {config_file}. Waiting...")
+        
     used_ips.add(ip)
     asyncio.get_event_loop().call_later(settings['expiry_time'], used_ips.remove, ip)
     return ip
