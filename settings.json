@@ -5,5 +5,6 @@
     "conf/config3.json"
   ],
   "sleep_time": 5,
-  "expiry_time": 60
+  "expiry_time": 60,
+  "url": "https://news.naver.com/"
 }

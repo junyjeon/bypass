@@ -61,7 +61,7 @@ async def handle_ip(session: aiohttp.ClientSession, config_files: list, used_ips
         ip = await check_proxy_ip(session)
         if ip is not None and ip not in used_ips:
             break
-        
+    
     used_ips.add(ip)
     asyncio.get_event_loop().call_later(settings['expiry_time'], used_ips.remove, ip)
     return ip
@@ -73,6 +73,8 @@ async def main_function(loop: asyncio.AbstractEventLoop) -> None:
     async with aiohttp.ClientSession() as session:
         while True:
             ip = await handle_ip(session, config_files, used_ips)
+            request = await session.get(settings['url'], proxy=f"http://{ip}")
+            print(await request.text(), ip, request.status)
             if ip is not None:
                 break
             await asyncio.sleep(settings['sleep_time'])
