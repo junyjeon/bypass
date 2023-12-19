@@ -1,42 +1,72 @@
 from selenium import webdriver
-from selenium.webdriver.support.ui import Select
-from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+import time
 
-# 직접 다운로드한 ChromeDriver의 경로를 지정합니다.
-chrome_driver_path = "/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"
+def wait_for_element(xpath, timeout=10):
+    return WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.XPATH, xpath)))
 
-# webdriver.Chrome()에 ChromeDriver의 경로를 전달합니다.
-driver = webdriver.Chrome(service=Service(chrome_driver_path))
+def wait_for_clickable(xpath, timeout=10):
+    return WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((By.XPATH, xpath)))
+
+def wait_for_visibility(xpath, timeout=10):
+    return WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, xpath)))
+
+def select_option(label_text, option_text, search=False):
+    if label_text == 'Country':
+        button = wait_for_element(f"//label[contains(text(), '{label_text}')]/following-sibling::div//button")
+    else:
+        button = wait_for_element(f"//label[contains(text(), '{label_text}')]/ancestor::div/following-sibling::div//button")
+    button.click()
+
+    if search:
+        search_field = wait_for_element("//input[@placeholder='Search']")
+        search_field.send_keys("Kore")
+
+    if label_text == 'Country':
+        option =wait_for_clickable(f"//li//span[contains(text(), '{option_text}')]")
+        wait_for_visibility("//td")
+    else:
+        option = wait_for_clickable(f"//label[text()='{option_text}']")
+    option.click()
+
+# 웹드라이버 객체 생성
+driver = webdriver.Chrome()
 
 # 웹사이트 접속
 driver.get("https://geonode.com/free-proxy-list")
 
 # 필터 설정
-country_select = Select(driver.find_element_by_id("country의 ID"))
-country_select.select_by_visible_text("South Korea")
+select_option('Country', 'South Korea', search=True)
+print("Country: South Korea")
+time.sleep(3)
+select_option('Anonymity', 'Elite (HIA)')
+print("Anonymity: Elite (HIA)")
+time.sleep(3)
+select_option('Proxy protocol', 'SOCKS4')
+print("Proxy protocol: SOCKS4")
 
-anonymity_select = Select(driver.find_element_by_id("anonymity의 ID"))
-anonymity_select.select_by_visible_text("Elite (HIA)")
+# 테이블의 모든 행이 로드될 때까지 기다립니다.
+rows = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.XPATH, "//tr")))
 
-protocol_select = Select(driver.find_element_by_id("protocol의 ID"))
-protocol_select.select_by_visible_text("SOCKS4")
-protocol_select.select_by_visible_text("SOCKS5")
+# IP와 포트를 저장할 리스트를 생성합니다.
+ip_port_list = []
 
-# 필터 적용 버튼 클릭
-apply_button = driver.find_element_by_id("apply button의 ID")
-apply_button.click()
-
-# 결과 추출
-table = driver.find_element_by_css_selector("table의 CSS 선택자")
-rows = table.find_elements_by_tag_name("tr")
-
+# 테이블의 모든 행에서 열을 찾습니다.
 for row in rows:
-    columns = row.find_elements_by_tag_name("td")
-    ip_address = columns[0].text
-    port = columns[1].text
-    protocol = columns[3].text
+    # IP 주소와 포트가 로드될 때까지 기다립니다.
+    ip_address = WebDriverWait(row, 10).until(EC.presence_of_element_located((By.XPATH, ".//td[1]"))).text
+    port = WebDriverWait(row, 10).until(EC.presence_of_element_located((By.XPATH, ".//td[2]"))).text
 
-    print(ip_address, port, protocol)
+    # IP와 포트를 묶어서 리스트에 추가합니다.
+    ip_port = {"ip": ip_address, "port": port}
+    ip_port_list.append(ip_port)
+
+    # 결과를 바로 출력합니다.
+    print(ip_address, port)
+    print(f"{ip_port['ip']}:{ip_port['port']}")
+    print(ip_port)
 
 # 웹드라이버 종료
 driver.quit()

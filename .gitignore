@@ -1,5 +1,6 @@
 .env
 env
 env/
-tmp.py
 docs.md
+chrome-linux64/
+chrome-linux64.zip
