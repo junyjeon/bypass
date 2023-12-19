@@ -26,7 +26,6 @@ def select_option(label_text, option_text, search=False):
 
     if label_text == 'Country':
         option =wait_for_clickable(f"//li//span[contains(text(), '{option_text}')]")
-        wait_for_visibility("//td")
     else:
         option = wait_for_clickable(f"//label[text()='{option_text}']")
     option.click()
