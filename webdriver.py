@@ -30,6 +30,7 @@ def select_option(label_text, option_text, search=False):
     else:
         option = wait_for_clickable(f"//label[text()='{option_text}']")
     option.click()
+    time.sleep(2)
 
 # 웹드라이버 객체 생성
 driver = webdriver.Chrome()
@@ -40,33 +41,26 @@ driver.get("https://geonode.com/free-proxy-list")
 # 필터 설정
 select_option('Country', 'South Korea', search=True)
 print("Country: South Korea")
-time.sleep(3)
 select_option('Anonymity', 'Elite (HIA)')
 print("Anonymity: Elite (HIA)")
-time.sleep(3)
 select_option('Proxy protocol', 'SOCKS4')
 print("Proxy protocol: SOCKS4")
 
-# 테이블의 모든 행이 로드될 때까지 기다립니다.
-rows = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.XPATH, "//tr")))
+rows = WebDriverWait(driver, 20).until(EC.presence_of_all_elements_located((By.XPATH, "//tr")))
 
-# IP와 포트를 저장할 리스트를 생성합니다.
 ip_port_list = []
 
-# 테이블의 모든 행에서 열을 찾습니다.
-for row in rows:
-    # IP 주소와 포트가 로드될 때까지 기다립니다.
-    ip_address = WebDriverWait(row, 10).until(EC.presence_of_element_located((By.XPATH, ".//td[1]"))).text
-    port = WebDriverWait(row, 10).until(EC.presence_of_element_located((By.XPATH, ".//td[2]"))).text
+for row in rows[1:]:
+    try:
+        ip_address = WebDriverWait(row, 10).until(EC.presence_of_element_located((By.XPATH, ".//td[1]/span"))).text
+        port = WebDriverWait(row, 10).until(EC.presence_of_element_located((By.XPATH, ".//td[2]/span"))).text
 
-    # IP와 포트를 묶어서 리스트에 추가합니다.
-    ip_port = {"ip": ip_address, "port": port}
-    ip_port_list.append(ip_port)
+        ip_port = {"ip": ip_address, "port": port}
+        ip_port_list.append(ip_port)
 
-    # 결과를 바로 출력합니다.
-    print(ip_address, port)
-    print(f"{ip_port['ip']}:{ip_port['port']}")
-    print(ip_port)
+        print(ip_port)
+    except Exception as e:
+        print(f"Error: {e}")
 
 # 웹드라이버 종료
 driver.quit()
