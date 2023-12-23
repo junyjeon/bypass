@@ -4,3 +4,5 @@ env/
 docs.md
 chrome-linux64/
 chrome-linux64.zip
+test/
+tmp/
